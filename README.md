@@ -68,33 +68,42 @@ Resumen rápido, de menos a más:
 
 | Nivel | Qué pruebas | Necesitas |
 |---|---|---|
-| 1 | Los gradientes y los 27 tests | nada |
+| 1 | Los gradientes y los tests del protocolo | nada |
 | 2 | Solo el reconocimiento | nada |
 | 3 | La cadena entera con LCD emulado | nada |
 | 4 | La cámara de verdad | solo webcam |
 | 5 | Todo con las ESP | 2 ESP32 + LCD |
+
+Los tres primeros niveles no necesitan ningún hardware. Empieza por el 3:
+
+```bash
+pip install -r requirements.txt
+python -m simulacion.simular --marcos 10 --lento
+```
 
 ---
 
 ## Empezar en 5 minutos
 
 ```bash
-pip install numpy opencv-python
+pip install -r requirements.txt
 
-# 1. Entrenar la CNN (~5 min: genera 8.000 imágenes y entrena 30 épocas)
-python -m vision.cnn.entrenar
-
-# 2. Comprobar que los gradientes están bien, ANTES de confiar en el modelo
-python pruebas/test_numerico.py
-
-# 3. Ver las pruebas del protocolo, el bus y el LCD (~15 s)
-python pruebas/test_protocolo.py
-
-# 4. Ver la cadena entera funcionando, sin hardware
+# 1. Ver la cadena entera funcionando, sin hardware y sin entrenar nada
+#    (los pesos vienen en el repositorio)
 python -m simulacion.simular --marcos 20 --lento
 ```
 
-Salida del paso 4:
+Eso es todo para verlo funcionar. Los pesos de la CNN están en el repositorio
+(`vision/cnn/pesos.npz`, 101 KB), así que no hace falta entrenar.
+
+Si quieres reentrenar o comprobar el modelo:
+
+```bash
+# Entrenar la CNN (~5 min: genera 8.000 imágenes y entrena 30 épocas)
+python -m vision.cnn.entrenar
+```
+
+Salida de la cadena:
 
 ```
 [    904 ms] [PC   ] digito 7  71%  seq 2  15 bytes
@@ -104,7 +113,7 @@ Salida del paso 4:
 +--------------------------------------------------------------+
 |  DIGITO: 7    71%                                            |
 |                                                              |
-|  seq 2     total 2                                          |
+|  seq 2    tot 2                                             |
 +--------------------------------------------------------------+
 ```
 
@@ -442,10 +451,14 @@ reconocimiento_digitos/
 │   ├── lcd.py                emulador del HD44780
 │   └── simular.py            orquesta los cuatro hilos
 │
-└── pruebas/
+└── pruebas/                  solo en local, no en el repositorio
     ├── test_numerico.py      gradientes por diferencias finitas
     └── test_protocolo.py     protocolo, bus, LCD y cadena completa
 ```
+
+Las pruebas no están en el repositorio: son de desarrollo, no de ejecución, y
+ocupan 24 KB. Se quedan en tu copia local y siguen siendo ejecutables con
+`python pruebas/test_protocolo.py`.
 
 ---
 
@@ -532,7 +545,7 @@ lo comprueba con un contador de seis cifras.
 
 - Gradientes de la CNN contra diferencias finitas, error relativo ~1e-10
 - 99,9% de acierto en el conjunto de prueba sintético
-- Las 27 pruebas del protocolo, el bus y el LCD
+- Las 27 pruebas del protocolo, el bus y el LCD (en local, fuera del repo)
 - La cadena completa en software, con acuse de vuelta
 - La cadena con ruido en el UART (30% de tramas con byte de relleno delante):
   13 dígitos entregados, 0 errores de CRC, 0 tramas descartadas
