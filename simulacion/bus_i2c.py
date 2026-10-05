@@ -1,20 +1,4 @@
-"""
-Bus I2C virtual. Un maestro (la ESP-B) y varios esclavos (el LCD, la EEPROM).
 
-QUE SE MODELA
--------------
-La direccion del esclavo y el contenido del byte. Nada mas, y es suficiente
-porque el unico esclavo con protocolo propio es el LCD, que ya se implementa en
-`simulacion/lcd.py` hablando el idioma del PCF8574.
-
-LO QUE NO SE MODELA Y POR QUE NO IMPORTA
------------------------------------------
-La velocidad real del bus, el arbitraje, los ACK y los timings de setup y hold.
-Un LCD a 400 kHz tarda 40 microsegundos por caracter; la trama completa tarda
-menos de 0.5 ms. En una cadena que ya va a 16 detecciones por segundo, ignorarlo
-no cambia ninguna conclusion. Si alguna vez hiciera falta, el sitio natural
-para meterlo es `escribir`, que es donde estaria la espera.
-"""
 
 from __future__ import annotations
 
@@ -49,12 +33,7 @@ class EsclavoI2C:
 
 
 class LcdEsclavo(EsclavoI2C):
-    """El HD44780 detras de su backpack PCF8574.
-
-    Cada `escribir` del maestro es un byte del PCF8574, y eso lo decodifica el
-    emulador del panel. El maestro cree que esta hablando con un puerto de ocho
-    lineas; el panel sabe que detras hay un controlador de caracteres.
-    """
+   
 
     def __init__(self, direccion: int, columnas: int = 16, filas: int = 2,
                  al_registrar=None) -> None:
@@ -69,12 +48,7 @@ class LcdEsclavo(EsclavoI2C):
 
 
 class EepromEsclavo(EsclavoI2C):
-    """24C32 de 4 kB. Esta ahi para comprobar el ruteo de direcciones.
-
-    No hace falta para el proyecto, pero tener dos esclavos en el mismo bus
-    demuestra que la ESP-B envia la direccion correcta. Con un solo esclavo, un
-    `0x27` mal puesto pasaria desapercibido porque todo escribiria en el LCD.
-    """
+  
 
     TAMANO = 4096
 
@@ -86,7 +60,7 @@ class EepromEsclavo(EsclavoI2C):
     def escribir(self, datos: bytes) -> int:
         super().escribir(datos)
         if len(datos) == 1:
-            # Es la direccion interna: el maestro esta posicionandose.
+          
             self.puntero = datos[0] * 16
         else:
             for byte in datos:
@@ -106,7 +80,7 @@ class EepromEsclavo(EsclavoI2C):
 
 
 class BusI2C:
-    """El bus. Varias direcciones, cada una con su esclavo."""
+
 
     def __init__(self, al_registrar=None, velocidad: int = 400_000) -> None:
         self.al_registrar = al_registrar or (lambda texto: None)
