@@ -1,4 +1,4 @@
-# Reconocimiento de dígitos con cámara, CNN y dos ESP32
+# Reconocimiento de dígitos con cámara
 
 Una cadena de cinco etapas que va de la cámara del portátil a un LCD de 16×2,
 pasando por dos microcontroladores, y que **se puede ejecutar entera en software
