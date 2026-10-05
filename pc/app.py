@@ -1,27 +1,4 @@
-"""
-Aplicacion de la PC: camara -> OpenCV -> CNN -> puerto serie.
 
-    python -m pc.app --listar
-    python -m pc.app --puerto COM5
-    python -m pc.app --fuente sim --marcos 40
-
-QUE HACE, PASO A PASO
----------------------
-1. Abre la camara y lee un fotograma.
-2. Lo pasa por `vision.preproceso.procesar`, que recorta el digito.
-3. Si no hay contorno, espera. ENCENDER Y APAGAR LA LUZ no produce detecciones.
-4. Si hay digito, la CNN devuelve (digito, confianza).
-5. Con la confianza por encima del umbral, empaqueta la trama y la escribe en
-   el UART. El numero de secuencia sube para que la ESP-B pueda contestar.
-
-POR QUE SOLO SE MANDA CUANDO LA CONFIANZA ALCANZA EL UMBRAL
-------------------------------------------------------------
-La ESP-B no puede dudar: si la PC le manda todo, el LCD va a mostrar numeros
-que nadie escribio y no hay forma de distinguirlos. Mandando solo lo que la red
-tiene claro, el LCD es un espejo de la realidad y el silencio significa "no hay
-digito". Con CONFIANZA_MINIMA en 55 se descarta cerca del 3% en pruebas
-sinteticas y sube ese numero con poca luz.
-"""
 
 from __future__ import annotations
 
@@ -34,20 +11,20 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if RAIZ not in sys.path:
     sys.path.insert(0, RAIZ)
 
-import cv2                                                    # noqa: E402
-import numpy as np                                            # noqa: E402
+import cv2                                                  
+import numpy as np                                           
 
-import configuracion                                         # noqa: E402
-from nucleo import protocolo, traza                          # noqa: E402
-from pc import transportes                                   # noqa: E402
-from vision import preproceso                                # noqa: E402
-from vision.cnn.modelo import DigitCNN                       # noqa: E402
+import configuracion                                       
+from nucleo import protocolo, traza                        
+from pc import transportes                                   
+from vision import preproceso                                
+from vision.cnn.modelo import DigitCNN                      
 
 
-# ------------------------------------------------------------------- fuentes ---
+
 
 class CamaraReal:
-    """La webcam de verdad. No necesita mas que cv2."""
+  
 
     def __init__(self, indice: int = 0, ancho: int = 640, alto: int = 480) -> None:
         self.cap = cv2.VideoCapture(indice)
@@ -55,10 +32,7 @@ class CamaraReal:
             raise RuntimeError(
                 "no se pudo abrir la camara %d. En Windows se elige con --fuente cam:N"
                 % indice)
-        # Estos dos `set` son una peticion, no una garantia. Muchas webcam
-        # ignoran la resolucion y entregan 1280x720. El preprocesado trabaja con
-        # proporcion de areas y con angulos, asi que aguanta cualquier tamano;
-        # lo unico que se pierde es detalle del digito.
+       
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, ancho)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, alto)
 
@@ -84,14 +58,7 @@ class CamaraReal:
 
 
 class CamaraSintetica:
-    """El generador del dataset usada como si fuera una camara.
 
-    Es lo que permite probar todo el sistema sin ningun hardware: no es un
-    mock que devuelve respuestas fijas, es el MISMO generador con el que se
-    entreno, pasando despues por el MISMO preprocesado. Si el reconocimiento
-    funciona aqui con una webcam real deberia funcionar alli tambien, salvo que
-    la letra de la persona este fuera de lo que el dataset cubre.
-    """
 
     def __init__(self, digitos=None, semilla: int = 4242) -> None:
         from vision.cnn import dataset
@@ -100,16 +67,13 @@ class CamaraSintetica:
         self.digitos = list(digitos) if digitos else list(range(10))
         self._verdad = 0
         self._cambia_en = 0
-        # El generador entrega 240x320 (vertical), que es lo que ve la webcam
-        # apuntando a una hoja. No se redimensiona nada: la CNN se entrena con
-        # los bordes que da el generador, y Escalarlos despues con un
-        # interpolador cualquiera los Pondria borrosos.
+       
 
     def _siguiente(self):
         self._cambia_en -= 1
         if self._cambia_en <= 0:
             self._verdad = int(self.digitos[int(self.rng.integers(len(self.digitos)))])
-            self._cambia_en = int(self.rng.integers(8, 26))   # cambia cada ~1 s a 16 fps
+            self._cambia_en = int(self.rng.integers(8, 26))   
         return self.dataset.sintetizar(self._verdad, self.rng)
 
     def leer(self):
@@ -137,15 +101,10 @@ class CamaraSintetica:
         self.cerrar()
 
 
-# ------------------------------------------------------------------ aplicacion --
+
 
 class LectorDigitos:
-    """El bucle de la PC, sin Atributos de camara ni de transporte.
-
-    Se separa para que las pruebas puedan Injectarle un transporte falso y
-    comprobar el protocolo entero sin abrir ningun puerto.
-    """
-
+   
     def __init__(self, modelo: DigitCNN, transporte, confianza_minima: int = None,
                  al_registrar=None) -> None:
         self.modelo = modelo
@@ -236,9 +195,7 @@ class LectorDigitos:
                 cv2.waitKey(1)
 
             marcos += 1
-            # El limite de fotogramas por segundo va aqui y no en la camara: la
-            # CNN es de microsegundos en la PC pero el LCD es de 20 Hz y nadie
-            # gana mandandole 60 detecciones por segundo.
+
             transcurrido = (time.time() - anterior) * 1000.0
             if transcurrido < pausa_ms:
                 time.sleep((pausa_ms - transcurrido) / 1000.0)
@@ -247,27 +204,19 @@ class LectorDigitos:
         self.registrar("fin: %d enviados, %d descartados" % (self.enviados, self.descartados))
 
     def resumen(self) -> str:
-        """Una linea con los numeros de la etapa. La usa el informe del simulador."""
         return ("PC: %d detecciones enviadas, %d descartadas por confianza baja, "
                 "%d acuses recibidos, %s"
                 % (self.enviados, self.descartados,
                    self.acuses.aceptadas, self.acuses.resumen()))
 
 
-# ------------------------------------------------------------------------ CLI ---
+
 
 def registrar_consola(origen: str, texto: str) -> None:
     print("[%s] %s" % (origen.upper().ljust(4), texto))
 
 
 class _AVeredas:
-    """Un transporte que se traga lo que se le manda.
-
-    Sirve para `--sin-puerto`: comprobar el reconocimiento por separado, sin
-    tener las ESP conectadas. Si se usara un `Serial` de verdad, habria que tener
-    el cable puesto solo para ver que lee la camara, que es la mitad del
-    desarrollo del proyecto.
-    """
 
     def __init__(self) -> None:
         self.escritos = 0
@@ -335,9 +284,7 @@ def main() -> int:
         try:
             fuente = CamaraReal(indice)
         except RuntimeError as exc:
-            # Sin webcam no se puede seguir por aqui. Se dice por que y se ofrece
-            # la camara sintetica, que es el mismo generador del entrenamiento y
-            # por eso sirve para comprobar el reconocimiento entero.
+          
             print(str(exc))
             print("Si solo quieres probar el reconocimiento, la camara sintetica")
             print("usa las mismas imagenes con las que se entreno:")
