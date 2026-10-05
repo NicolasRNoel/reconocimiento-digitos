@@ -1,0 +1,33 @@
+# ----------------------------------------------------------------- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# --------------------------------------------------- artefactos del modelo ---
+# El cache del dataset de entrenamiento. Son 1.5 MB de muestras que se regeneran
+# en 4 minutos con `python -m vision.cnn.entrenar`, y cambia con cada version
+# del generador. Subirlo haria que dos personas tuvieran datos distintos.
+vision/cnn/cache_*.npz
+
+# Los pesos SI se suben: son 101 KB y sin ellos el repositorio no se puede
+# ejecutar. Es una decision consciente: normalmente no se versionan pesos
+# binarios, pero aqui son el resultado del proyecto y ocupan poco.
+
+# -------------------------------------------------------------- simulacion ---
+# Salidas de las pruebas numericas. Van a la carpeta temporal del sistema, pero
+# por si alguien los cambia de sitio:
+pruebas/*.png
+*_prueba_*.png
+*_diag*.png
+
+# ------------------------------------------------------------- sistema ------
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ------------------------------------------------------------- editores ------
+.vscode/
+.idea/
+*.swp

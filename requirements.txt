@@ -1,0 +1,6 @@
+numpy>=1.24
+opencv-python>=4.8
+
+# Solo para hablar con una ESP32 de verdad por el puerto serie. El simulador y
+# las pruebas NO lo necesitan: usan tuberias en memoria.
+pyserial>=3.5
