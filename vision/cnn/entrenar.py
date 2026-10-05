@@ -1,28 +1,4 @@
-"""
-Entrena la CNN y guarda los pesos en vision/cnn/pesos.npz.
 
-    python -m vision.cnn.entrenar                      # 800 por digito, 25 epocas
-    python -m vision.cnn.entrenar --n 2000 --epocas 40  # mas datos, mas epocas
-
-QUE SE ESTA ENTRENANDO Y QUE NO
--------------------------------
-Se entrena con imagenes sinteticas de digitos escritos con las fuentes de
-OpenCV sobre un papel con el foco de luz descentrado, y pasando despues por el
-MISMO preprocesado que usa la camara. Eso cubre el trazo, el papel, la
-iluminacion y el ruido del sensor.
-
-NO cubre la letra humana. Si el usuario escribe el "1" con el angulo muy
-marcado, o el "7" sin travesano, hay que generar muestras de ese estilo y
-añadirlas: es el unico dato que esta simulacion no puede inventar. La funcion
-`dataset.sintetizar` admite fuentes y grosores, asi que se pueden generar
-variantes extra y concatenarlas antes de entrenar.
-
-TAMANO DEL CONJUNTO
--------------------
-Con 8.000 muestras la red es pequena para el problema y todavia no se ha comido
-el fondo. Por encima de unos 40.000 se nota el sobreajuste a las muestras
-sinteticas: sube el acierto en prueba sintetica y baja con la camara real.
-"""
 
 from __future__ import annotations
 
@@ -37,21 +13,16 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 if RAIZ not in sys.path:
     sys.path.insert(0, RAIZ)
 
-import configuracion                                        # noqa: E402
-from vision.cnn import dataset                              # noqa: E402
-from vision.cnn.capas import perdida_entropia               # noqa: E402
-from vision.cnn.modelo import DigitCNN                      # noqa: E402
+import configuracion                                      
+from vision.cnn import dataset                              
+from vision.cnn.capas import perdida_entropia               
+from vision.cnn.modelo import DigitCNN                     
 
 
-# --------------------------------------------------------------- optimizador ----
+
 
 def optimizador_adam(modelo: DigitCNN, tasa: float = 1e-3):
-    """Adam a mano, para no arrastrar PyTorch solo por el optimizador.
-
-    Guarda dos momentos por parametro. El sesgo y los pesos se mueven distinto:
-    el sesgo suele tener mucha menos norma y con Adam los dos convergen a la
-    misma velocidad.
-    """
+    
     grupos = modelo.parametros()
     planos = [p for grupo in grupos for p in grupo]
     m = [np.zeros_like(p) for p in planos]
@@ -74,7 +45,7 @@ def optimizador_adam(modelo: DigitCNN, tasa: float = 1e-3):
     return aplicar
 
 
-# ------------------------------------------------------------------ metricas ----
+
 
 def exactitud(modelo: DigitCNN, X: np.ndarray, y: np.ndarray) -> float:
     if len(y) == 0:
@@ -90,7 +61,6 @@ def matriz_confusion(modelo: DigitCNN, X: np.ndarray, y: np.ndarray) -> np.ndarr
     return confusion
 
 
-# ------------------------------------------------------------------------ main --
 
 def main() -> int:
     analizador = argparse.ArgumentParser(description="Entrena la CNN de digitos")
@@ -124,9 +94,7 @@ def main() -> int:
     X_ent, y_ent = X[indices[:corte]], y[indices[:corte]]
     X_pru, y_pru = X[indices[corte:]], y[indices[corte:]]
 
-    # Se normaliza con la media del ENTRENAMIENTO y se aplica la misma a prueba.
-    # Normalizar cada parte por su cuenta hace que la prueba sea mas facil que
-    # el entrenamiento y el acierto sale inflado.
+   
     media = float(X_ent.mean())
     desvio = float(X_ent.std()) + 1e-6
     X_ent = ((X_ent - media) / desvio).astype(np.float32)
