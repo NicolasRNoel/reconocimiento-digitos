@@ -1,26 +1,3 @@
-"""
-Generador del conjunto de entrenamiento.
-
-POR QUE DATOS SINTETICOS Y NO MNIST
-------------------------------------
-MNIST son digitos de 28x28 en escala de grises sobre fondo negro, ya
-centrados, sin ruido y escritos por personas distintas. La camara de este
-proyecto ve otra cosa: papel, luz de techo en degradado, el borde del marco,
-un boligrafo que no carga bien y el dedo del usuario todavia en la escena.
-
-Un modelo entrenado solo con MNIST baja del 80% de acierto en cuanto la
-iluminacion se mueve, porque se ha aprendido el fondo, no el digito. Aqui se
-generan imagenes que ya tienen esos defectos y despues se les pasa el MISMO
-preprocesado que en inferencia, de modo que la distribucion con la que se
-entrena y la que se ve en produccion son la misma.
-
-AQUI ESTA EL TRUCO IMPORTANTE
-------------------------------
-`sintetizar` devuelve el marco crudo de 240x320, no los 20x20. El recorte lo
-hace `vision.preproceso.procesar`, el mismo codigo que corre contra la camara.
-Si el dataset se armara con recortes hechos aparte, cualquier diferencia entre
-los dos caminos se comeria la exactitud sin que se notara en el entrenamiento.
-"""
 
 from __future__ import annotations
 
@@ -31,9 +8,6 @@ import numpy as np
 
 from vision import preproceso
 
-# Fuentes de OpenCV con formas muy distintas: sin serifa, de trazo simple, con
-# pie, de bloque, casi manuscrita. Mezclarlas es lo que evita que el modelo se
-# case con una sola.
 FUENTES = (
     cv2.FONT_HERSHEY_SIMPLEX,
     cv2.FONT_HERSHEY_PLAIN,
@@ -47,27 +21,10 @@ ANCHO = 240
 ALTO = 320
 
 
-# ------------------------------------------------------------------- escena ----
+
 
 def _papel(rng: np.random.Generator) -> np.ndarray:
-    """Fondo de papel con el foco de luz descentrado.
-
-    LA INTENSIDAD DEL DEGRADADO ESTA LIMITADA A PROPOSITO
-    ------------------------------------------------------
-    Un tramo de papel bajo una lampara de mesa no varia mas de un 20% entre la
-    zona iluminada y la que le queda en sombra. La primera version de este
-    generador multiplicaba por hasta 0.72 y restaba otro 42% por el foco, con lo
-    que el papelLlegaba a medir 132 en una esquina y 246 en la otra.
-
-    Con esa dispersion Otsu deja de separar "tinta de papel" y separa "papel
-    claro de papel oscuro": el umbral cae en medio del papel, la mitad del papel
-    queda como tinta y el contorno mas grande de la imagen es medio pliego. Se
-    ve mirando el recorte 20x20: en lugar de un digito sale un bulto.
-
-    Que el dataset sea dificil es bueno; que sea fisicamente imposible no. Con
-    estos valores el modelo tiene que aguantar ruido y variacion de tono de
-    verdad, sin que la escena llegue a ser irreconocible.
-    """
+    
     vertical = np.linspace(0.88, 1.06, ALTO, dtype=np.float32)[:, None]
     horizontal = np.linspace(0.93, 1.07, ANCHO, dtype=np.float32)[None, :]
     base = (vertical * horizontal * float(rng.uniform(200, 245))).astype(np.float32)
@@ -85,8 +42,7 @@ def _papel(rng: np.random.Generator) -> np.ndarray:
 
 
 def _gris_de_tinta(rng: np.random.Generator) -> int:
-    """Gris del trazo: boli casi negro, lapis gris claro, o marcador blanco
-    sobre cartulina oscura."""
+   
     eleccion = rng.random()
     if eleccion < 0.62:
         return int(rng.integers(8, 60))
@@ -96,7 +52,7 @@ def _gris_de_tinta(rng: np.random.Generator) -> int:
 
 
 def _trazo(digito: int, rng: np.random.Generator) -> np.ndarray:
-    """Mascara binaria 240x320 con el digito, rotado y centrado con ruido."""
+    
     texto = str(digito)
     for _ in range(40):
         fuente = int(rng.choice(FUENTES))
@@ -105,7 +61,7 @@ def _trazo(digito: int, rng: np.random.Generator) -> np.ndarray:
 
         (ancho_texto, alto_texto), base = cv2.getTextSize(texto, fuente, escala, grosor)
         if ancho_texto < 10 or alto_texto < 30:
-            continue                                   # escala inutil, se prueba otra
+            continue                                  
 
         holgura = 24
         mosaico = np.zeros((alto_texto + base + 2 * holgura,
@@ -139,24 +95,17 @@ def _trazo(digito: int, rng: np.random.Generator) -> np.ndarray:
 
 
 def sintetizar(digito: int, rng: np.random.Generator) -> np.ndarray:
-    """Un marco de camara de 240x320 en BGR con un digito y sus defeitos."""
+  
     gris = _papel(rng)
     mascara = _trazo(digito, rng)
     if cv2.countNonZero(mascara) == 0:
         return cv2.cvtColor(gris.astype(np.uint8), cv2.COLOR_GRAY2BGR)
 
     tinta = _gris_de_tinta(rng)
-    alfa = mascara / 255.0                       # (ALTO, ANCHO), misma forma que `gris`
+    alfa = mascara / 255.0                      
     gris = gris * (1.0 - alfa) + float(tinta) * alfa
 
-    # Ligera perspectiva: la camara nunca esta perfectamente perpendicular.
-    #
-    # Se deforma en un lienzo AMPLIADO y luego se recorta el centro, de forma
-    # que el papel llega hasta el borde en los cuatro lados. Las dos alternativas
-    # que se probaron primero dejaban un marco negro alrededor, y ese marco
-    # rompia la deteccion de polaridad del preprocesado: las esquinas son justo
-    # la zona que se usa como muestra del fondo, y ahi habia relleno en vez de
-    # papel. Con el recorte central el fondo es papel hasta el ultimo pixel.
+   
     desv = float(rng.uniform(0, 7))
     origen = np.float32([[rng.uniform(0, desv), rng.uniform(0, desv)],
                          [ANCHO - rng.uniform(0, desv), rng.uniform(0, desv)],
@@ -180,22 +129,11 @@ def muestra(digito: int, semilla: int = 0) -> np.ndarray:
     return sintetizar(digito, np.random.default_rng(semilla))
 
 
-# ------------------------------------------------------------------ conjunto ---
+
 
 def construir(n_por_digito: int = 800, semilla: int = 20260903,
               max_descartes: float = 0.25, cache: bool = True) -> tuple:
-    """Arma (X, y, descartados). X con forma (N, 1, 20, 20) float32, y con (N,).
-
-    Se descarta la muestra cuando el preprocesado no encuentra contorno. Eso
-    pasa de verdad, sobre todo con el "1" en PLAIN, que es tan estrecho que el
-    filtro de proporcion lo puede rechazar; y conviene mas descartar que
-    meterle al modelo un 20x20 en negro con la etiqueta de un "3".
-
-    El resultado se guarda en `cache_<n>_<semilla>.npz` junto al modulo.
-    Generar 8.000 muestras cuesta unos cuatro minutos y es determinista, asi que
-    repetirlo en cada entrenamiento solo wastes tiempo. Ademas, si el generador
-    cambiara entre dos-entrenamientos, comparar sus numeros no significaria nada.
-    """
+   
     ruta = None
     if cache:
         os.makedirs(os.path.dirname(os.path.abspath(__file__)), exist_ok=True)
@@ -219,8 +157,7 @@ def construir(n_por_digito: int = 800, semilla: int = 20260903,
                 descartados_clase += 1
                 if descartados_clase > techo:
                     raise RuntimeError(
-                        "vision/preproceso.py rechaza casi todas las muestras del "
-                        "digito %d: revisa los filtros de proporcion y relleno"
+                       
                         % digito)
                 continue
             xs.append(entrada[0])
@@ -230,8 +167,7 @@ def construir(n_por_digito: int = 800, semilla: int = 20260903,
     X = np.stack(xs).astype(np.float32)[:, None, :, :]
     y = np.array(ys, dtype=np.int64)
 
-    # Barajar: sin esto el optimizador veria todos los 0, luego todos los 1, y
-    # el ultimo lote de cada epoca seria completamente distinto a los demas.
+    
     orden = rng.permutation(len(y))
     X, y = X[orden], y[orden]
 
