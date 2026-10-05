@@ -31,3 +31,10 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# ---------------------------------------------------------------- pruebas ---
+# Las pruebas se conservan en el proyecto local y siguen siendo ejecutables,
+# pero no se suben al repositorio: ocupan 24 KB y su funcion es de desarrollo,
+# no de ejecucion. Si alguien contributinga y toca el protocolo, las tiene en
+# su copia local y le avisan antes de romper nada.
+pruebas/
