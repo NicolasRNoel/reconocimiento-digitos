@@ -20,7 +20,6 @@ Integrantes: Nicolas Robayo ; Camilo Molano ; Jordán Alejandro Rodriguez
 ## Índice
 
 - [Qué hace y por qué](#qué-hace-y-por-qué)
-- [La cadena explicada etapa por etapa](#la-cadena-explicada-etapa-por-etapa)
 - [La simulación](#la-simulación)
 - [Montar en hardware real](#montar-en-hardware-real)
 - [Estructura de archivos](#estructura-de-archivos)
