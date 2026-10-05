@@ -1,28 +1,4 @@
-"""
-Modulo `machine` falso para el simulador.
 
-ESTO NO ES UN JUEGO DE DATOS: ES LA CAPA DE HARDWARE
----------------------------------------------------
-El firmware de las ESP importa `machine`. En el PC no existe, asi que este modulo
-se registra en `sys.modules` con ese nombre ANTES de importar el firmware. A
-partir de ahi, `from machine import Pin, UART, SPI, I2C` funciona y devuelve
-objetos que se comportan como los del Hardware.
-
-La razon de hacerlo asi, y no con una API propia del simulador, es que el
-firmware que se ejecuta en el PC es LITERALMENTE el mismo archivo que se copia a
-la placa con `mpremote cp`. Si el simulador usara una API distinta, estariamos
-validando una copia del firmware, no el firmware, y el unico que se enteraria de
-la diferencia seria quien lo montara en la placa.
-
-DONDE ESTA CADA COSA
---------------------
-    Pin    aqui mismo
-    UART   aqui mismo, sobre una tuberia de `pc/transportes.py`
-    SPI    aqui mismo, sobre `simulacion/bus_spi.py`
-    I2C    aqui mismo, sobre `simulacion/bus_i2c.py`
-
-Lo que cambia entre la ESP y el PC son los retards, que se calibran abajo.
-"""
 
 from __future__ import annotations
 
@@ -33,33 +9,16 @@ from simulacion.bus_i2c import BusI2C, EepromEsclavo, LcdEsclavo
 from simulacion.bus_spi import BusSPI
 from pc import transportes
 
-# ---------------------------------------------------------------- retardos -----
-# Cuanto se retrasa cada operacion para que el simulador tenga el ritmo del
-# hardware. Todo a 0 = la simulacion corre mil veces mas rapido que la realidad y
-# no sirve para nada. Todo a "real" = un LCD a 40 us por caracter hace la
-# simulacion inservible para trabajar.
-#
-# Se eligieron estos valores, y no otros, mirando cuanto tarda cada cosa de
-# verdad: la UART a 115200 son 87 us por byte, el SPI a 1 MHz son 8 us, y el HD44780
-# unos 40 us por caracter. Con un factor de 100 las esperas son de milisegundos, se
-# sienten en el log y nocaten.
 
-RETRASO_UART = 0.0        # La UART real es de 87 us/byte, pero el byte se corta
-                          # en trozos de 1 a 4 y eso ya mete ruido de sobra.
-RETRASO_SPI = 0.0         # El SPI real son 8 us/byte. Se deja en 0 porque el
-                          # hilo de la ESP-A ya espera a que la ESP-B lea, y esa
-                          # espera es el retardo que importa.
-RETRASO_I2C = 0.0         # El HD44780 real son 40 us por caracter.
+RETRASO_UART = 0.0        
+RETRASO_SPI = 0.0         
+RETRASO_I2C = 0.0         
 
-# Se trocean las escrituras del UART para que el parser de tramas se ejercite.
-# Es el detalle mas importante de todo el simulador: sin esto, las tramas
-# llegarian enteras y alineadas, el despiece de `Traza` nunca se probaria, y
-# entonces el firmware pasaria aqui y fallaria con la placa de verdad, que
-# trocea igual o peor.
+
 TROCEADO_UART = (1, 4)
 
 
-# -------------------------------------------------------------------- Pin ------
+
 
 class Pin:
     """Un pin GPIO. Lo que importa es que sea invocable: `cs(0)` y `cs(1)`."""
@@ -105,7 +64,6 @@ class Pin:
         return "Pin(%d)=%d" % (self.numero, self.valor_actual)
 
 
-# ------------------------------------------------------------------- UART ------
 
 class UART:
     """Puerto serie. Los dos extremos son `Tuberia`, que ya conoce el firmware."""
@@ -133,13 +91,7 @@ class UART:
         return b""
 
     def write(self, datos) -> int:
-        """Escribe TROCEADO, como un conversor USB-TTL de verdad.
-
-        Es lo que obliga a que el parser de tramas de la ESP-A y de la ESP-B
-        funcione con recepcion parcial. Sin trocear, las tramas llegarian enteras
-        y alineadas, el camino de "a medio recibir" no se ejecutaria nunca, y el
-        firmware pasaria la simulacion y fallaria en la placa.
-        """
+       
         datos = bytes(datos)
         self.bytes_tx += len(datos)
         if TROCEADO_UART:
@@ -156,20 +108,13 @@ class UART:
         return "UART(%d, %d baudios)" % (self.numero, self.baudios)
 
 
-# -------------------------------------------------------------------- SPI ------
+
 
 BUSES_SPI = {}
 
 
 class SPI:
-    """SPI. El registro por velocidad es lo que permite que las dos ESP, que se
-    construyen por separado, encuentro el mismo bus.
-
-    `MSB` y `LSB` existen para que el firmware pueda pasar `firstbit=SPI.MSB` como
-    haria en la placa. En el bus virtual el orden de los bits no importa: los
-    bytes viajan enteros, y el MSB es lo unico que usa el HD44780 y los dos
-    ESP32.
-    """
+    
 
     MSB = 0
     LSB = 1
@@ -190,10 +135,7 @@ class SPI:
             BUSES_SPI[baudios] = bus
         self.bus = bus
 
-        # El CS lo aporta quien construye el SPI. Que se pase por aqui y no se
-        # cree dentro es lo que permite que el hilo de la ESP-B se enganche a
-        # los cambios del pin, que es como se entera de que empieza una
-        # transaccion.
+     
         cs = pin_cs if pin_cs is not None else Pin(5, Pin.OUT)
 
         if rxonly:
@@ -249,8 +191,7 @@ class I2C:
         if bus is None:
             bus = BusI2C(velocidad=freq)
             BUSES_I2C[bus_id] = bus
-            # El LCD y una EEPROM de prueba. Que haya dos direcciones distintas
-            # es lo que permite comprobar que el maestro elige bien.
+        
             bus.conectar(LcdEsclavo(0x27))
             bus.conectar(EepromEsclavo(0x57))
             ESCLAVOS_I2C[bus_id] = bus.esclavos
@@ -277,7 +218,6 @@ class I2C:
         pass
 
 
-# ------------------------------------------------------------- registros -------
 
 def registrar_en_python() -> None:
     """Publica este modulo como `machine`. Se llama antes de importar el firmware."""
